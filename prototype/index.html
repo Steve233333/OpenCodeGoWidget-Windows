@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>OpenCode Go — Windows 版主界面原型</title>
+<!-- 设计 token 由 tools/extract_tokens.py 从 macOS 版源码生成，两边共用 -->
+<link rel="stylesheet" href="../design/tokens.css">
+<style>
+  /* ── 设计 token 里没有的少量语义色（对应 SwiftUI 的 .primary / .secondary）── */
+  :root {
+    --text:      rgba(0, 0, 0, 0.85);
+    --secondary: rgba(0, 0, 0, 0.50);
+    --track:     rgba(0, 0, 0, 0.10);
+    --card:      rgba(0, 0, 0, 0.03);
+    --stroke:    rgba(0, 0, 0, 0.06);
+    --grid:      rgba(0, 0, 0, 0.08);
+    --accent:    #007aff;
+    --red:       #ff3b30;
+    --orange:    #ff9500;
+    --green:     #34c759;
+    /* macOS 用 SF Pro / 苹方（和原生 App 一致，方便逐像素比对）；
+       Windows 上回退到要内嵌的 Inter / 思源黑体 */
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+            "Inter", "Noto Sans SC", "Segoe UI Variable Text", "Microsoft YaHei", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 20px 60px;
+    background: #e9e9ec;
+    font-family: var(--font);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .demo-note {
+    width: var(--window-w);
+    margin: 0 auto 14px;
+    font-size: var(--fs-nano);
+    color: rgba(0, 0, 0, 0.45);
+    line-height: 1.7;
+  }
+  .demo-note b { color: rgba(0, 0, 0, 0.7); }
+
+  /* ── 窗口 ─────────────────────────────────────────────── */
+  .window {
+    width: var(--window-w);
+    height: var(--window-h);
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.06);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .app-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: var(--header-pt) var(--header-px) var(--header-pb);
+    flex: none;
+  }
+  .brand { display: flex; align-items: center; gap: 6px; font-size: var(--fs-headline); font-weight: 600; }
+  .brand-glyph {
+    width: 15px; height: 15px; border-radius: 3px;
+    border: 2.2px solid #111; display: inline-block; position: relative;
+  }
+  .brand-glyph::after {
+    content: ""; position: absolute; left: 2px; top: 2px;
+    width: 3.4px; height: 7px; background: #111;
+  }
+  .spacer { flex: 1; }
+  .icon-btn {
+    width: 26px; height: 22px; border-radius: 6px;
+    border: 1px solid var(--stroke);
+    background: rgba(0, 0, 0, 0.02);
+    color: var(--secondary); font-size: 12px; cursor: pointer;
+    display: grid; place-items: center;
+  }
+  .icon-btn:hover { background: rgba(0, 0, 0, 0.06); }
+
+  .scroll {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 0 var(--header-px) 20px;
+  }
+  .scroll::-webkit-scrollbar { width: 9px; }
+  .scroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.22); border-radius: 5px; border: 2px solid #fff;
+  }
+
+  section + section { margin-top: var(--gap-section); }
+  .secondary { color: var(--secondary); }
+
+  /* ── 图表区 ───────────────────────────────────────────── */
+  .range-row { font-size: var(--fs-caption); color: var(--secondary); }
+  .sub-row {
+    display: flex; align-items: baseline; gap: 8px;
+    margin-top: var(--gap-tight);
+  }
+  .sub-row .detail { font-size: var(--fs-nano); color: var(--secondary); }
+  .total { font-size: var(--fs-subheadline); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .controls-row { display: flex; align-items: center; margin-top: var(--gap-inner); }
+  .segmented {
+    display: flex; padding: var(--segmented-track-padding, 2px);
+    background: rgba(0, 0, 0, 0.08); border-radius: 7px;
+  }
+  .segmented button {
+    border: 0; background: transparent; cursor: pointer;
+    font-family: inherit; font-size: var(--fs-caption2); color: var(--text);
+    padding: 4px 10px; border-radius: 5px;
+  }
+  .segmented button.active { background: var(--accent); color: #fff; font-weight: 600; }
+  .chip {
+    display: flex; align-items: center; gap: 3px;
+    font-size: var(--fs-caption2); padding: 4px 6px;
+    background: rgba(0, 0, 0, 0.06); border-radius: 6px; cursor: pointer;
+  }
+  .chip .caret { font-size: 7px; color: var(--secondary); }
+
+  /* 堆叠柱状图：纯 CSS，方便逐像素调 */
+  .chart {
+    position: relative; height: var(--chart-h);
+    margin-top: var(--gap-inner);
+    padding-left: 30px; padding-bottom: 15px;
+  }
+  .chart-plot { position: relative; height: 100%; }
+  .gridline {
+    position: absolute; left: 0; right: 0; height: 1px;
+    border-top: 1px dashed var(--grid);
+  }
+  .ylab {
+    position: absolute; left: 0; width: 26px; text-align: right;
+    font-size: var(--fs-nano); color: var(--secondary);
+    transform: translateY(-50%);
+  }
+  .bars {
+    position: absolute; left: 0; right: 0; bottom: 0; top: 0;
+    display: flex; align-items: flex-end; justify-content: space-between;
+  }
+  .bar { width: 11px; display: flex; flex-direction: column; justify-content: flex-end;
+         border-radius: 3px; overflow: hidden; }
+  .bar i { display: block; }
+  .xaxis {
+    position: absolute; left: 30px; right: 0; bottom: 0;
+    display: flex; justify-content: space-between;
+    font-size: var(--fs-nano); color: var(--secondary);
+  }
+
+  /* 图例：多列换行 */
+  .legend {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 5px 10px; margin-top: var(--gap-inner);
+  }
+  .legend .item {
+    display: flex; align-items: center; gap: 5px;
+    font-size: var(--fs-caption2); min-width: 0;
+  }
+  .legend .swatch { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+  .legend .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── 今日模型 ─────────────────────────────────────────── */
+  .today-head { display: flex; align-items: baseline; font-size: var(--fs-caption); color: var(--secondary); }
+  .today-head .amount { font-size: var(--fs-caption2); color: var(--text); font-variant-numeric: tabular-nums; }
+  .stack-bar { display: flex; gap: 2px; height: 8px; margin-top: var(--gap-tight);
+               border-radius: 4px; overflow: hidden; background: rgba(0,0,0,0.05); }
+  .stack-bar i { display: block; height: 100%; }
+  .today-legend { display: flex; gap: 12px; margin-top: var(--gap-inner); font-size: var(--fs-caption2); }
+  .today-legend span { display: flex; align-items: center; gap: 4px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+
+  /* ── 三档额度 ─────────────────────────────────────────── */
+  .quota-rows { display: flex; flex-direction: column; gap: var(--gap-section); }
+  .quota-row .line { display: flex; align-items: baseline; gap: 4px; }
+  .quota-row .label { font-size: var(--fs-caption); }
+  .quota-row .pct { font-size: var(--fs-caption); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .quota-row .reset { font-size: var(--fs-caption2); color: var(--secondary); }
+  .track { height: 6px; border-radius: 3px; background: var(--track); margin-top: 4px; overflow: hidden; }
+  .track i { display: block; height: 100%; border-radius: 3px; }
+
+  .updated { text-align: center; font-size: var(--fs-caption2); color: var(--secondary); margin-top: var(--gap-section); }
+  hr.divider { border: 0; border-top: 1px solid var(--stroke); margin: var(--gap-section) 0 0; }
+
+  /* ── Go 配额表 ────────────────────────────────────────── */
+  .quota-card {
+    margin-top: var(--gap-section);
+    padding: var(--quota-pad);
+    background: var(--card);
+    border: 0.5px solid var(--stroke);
+    border-radius: var(--quota-radius);
+  }
+  .quota-card-head { display: flex; align-items: baseline; gap: 8px; }
+  .quota-card-head .title { font-size: var(--fs-caption); color: var(--secondary); }
+  .quota-card-legend { display: flex; gap: 6px; font-size: var(--fs-nano); color: var(--secondary); }
+  .quota-card-legend span { display: flex; align-items: center; gap: 3px; }
+  .quota-card-legend .time { margin-left: 4px; }
+  .col-head { display: flex; gap: 6px; margin-top: 8px; font-size: var(--fs-nano); color: var(--secondary); }
+  .col-head .model-col { width: var(--quota-model-w); }
+  .col-head .bar-col { flex: 1; padding-left: 2px; }
+  .col-head .val-col { width: var(--quota-value-w); }
+
+  .q-rows { display: flex; flex-direction: column; gap: var(--quota-row-gap); margin-top: 4px; }
+  .q-row { display: flex; align-items: center; gap: 6px; height: var(--quota-row-h); }
+  .q-model { width: var(--quota-model-w); display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .q-rank { width: var(--quota-rank-w); text-align: right; font-size: var(--fs-micro);
+            font-weight: 600; font-variant-numeric: tabular-nums; flex: none; }
+  .q-name { font-size: var(--fs-micro); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .q-badge { font-size: var(--fs-pico); font-weight: 600; color: var(--orange); flex: none; }
+  .q-bar { flex: 1; height: var(--quota-bar-h); border-radius: 4px; background: rgba(0,0,0,0.06);
+           overflow: hidden; display: flex; }
+  .q-bar i { display: block; height: 100%; }
+  .q-vals { width: var(--quota-value-w); font-size: var(--fs-pico); color: var(--secondary); line-height: 1.25; }
+  .q-gold { font-size: var(--fs-micro); font-weight: 700; color: var(--quota-goldBottom);
+            width: var(--quota-rank-w); text-align: right; flex: none; }
+  .q-bar-gold { background: linear-gradient(90deg, var(--quota-goldTop), var(--quota-goldBottom));
+                color: #fff; font-size: var(--fs-pico); font-weight: 700;
+                align-items: center; padding-left: 6px; }
+
+  .axis { position: relative; height: 16px; margin-top: 4px; margin-left: calc(var(--quota-model-w) + 6px);
+          margin-right: calc(var(--quota-value-w) + 6px); }
+  .axis .line { position: absolute; left: 0; right: 0; top: 0; height: 1px; background: rgba(0,0,0,0.06); }
+  .axis .tick { position: absolute; top: 0; width: 28px; text-align: center; font-size: var(--fs-pico);
+                color: var(--secondary); }
+  .axis .tick::before { content: ""; display: block; width: 1px; height: 4px;
+                        background: rgba(0,0,0,0.12); margin: 0 auto 2px; }
+  .footnote { margin-top: 8px; text-align: center; font-size: var(--fs-nano); color: var(--secondary); line-height: 1.6; }
+
+  .refresh-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    width: 132px; height: 32px; margin: 18px auto 4px;
+    border: 0; border-radius: 8px; background: var(--accent); color: #fff;
+    font-family: inherit; font-size: var(--fs-subheadline); font-weight: 600; cursor: pointer;
+  }
+  .refresh-btn:hover { filter: brightness(1.06); }
+</style>
+</head>
+<body>
+
+<p class="demo-note">
+  <b>这是 Windows 版主界面的 HTML 原型</b>（演示数据）。用浏览器打开，和 macOS 版并排比对。<br>
+  配色、字号、间距全部来自 <code>design/tokens.css</code>，由 <code>tools/extract_tokens.py</code> 从 macOS 版源码自动生成。<br>
+  字体在 macOS 上会渲染成 SF Pro / 苹方（和原生一模一样），在 Windows 上走 Inter / 思源黑体。
+</p>
+
+<div class="window">
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-glyph"></span>
+      <span>OpenCode Go</span>
+    </div>
+    <span class="spacer"></span>
+    <button class="icon-btn" title="设置">⚙</button>
+  </header>
+
+  <div class="scroll">
+    <!-- 花费图表 -->
+    <section class="chart-block">
+      <div class="range-row" id="rangeLabel">8月18日-9月17日</div>
+      <div class="sub-row">
+        <span class="detail" id="cycleDetail">套餐生效 8月18日 13:51 — 9月18日 13:51</span>
+        <span class="spacer"></span>
+        <span class="total" id="totalLabel">$0.00 USD</span>
+      </div>
+      <div class="controls-row">
+        <div class="segmented" id="alignToggle">
+          <button class="active" data-align="billing">账期</button>
+          <button data-align="calendar">自然月</button>
+        </div>
+        <span class="spacer"></span>
+        <div class="chip"><span>所有密钥</span><span class="caret">▲▼</span></div>
+      </div>
+      <div class="chart">
+        <div class="chart-plot" id="chartPlot"></div>
+        <div class="xaxis" id="chartXAxis"></div>
+      </div>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <!-- 今日模型 -->
+    <section>
+      <div class="today-head">
+        <span>今日模型</span>
+        <span class="spacer"></span>
+        <span class="amount" id="todayTotal">$0.00 USD</span>
+      </div>
+      <div class="stack-bar" id="todayBar"></div>
+      <div class="today-legend" id="todayLegend"></div>
+    </section>
+
+    <!-- 三档额度 -->
+    <section class="quota-rows" id="quotaRows"></section>
+
+    <div class="updated" id="updatedAt">更新于 下午4:51</div>
+    <hr class="divider">
+
+    <!-- Go 配额表 -->
+    <section class="quota-card">
+      <div class="quota-card-head">
+        <span class="title">Go 配额（每 5h / 周 / 月）</span>
+        <span class="spacer"></span>
+        <span class="quota-card-legend">
+          <span><i class="dot" style="background:var(--quota-c5h)"></i>5h</span>
+          <span><i class="dot" style="background:var(--quota-cWeekly)"></i>周</span>
+          <span><i class="dot" style="background:var(--quota-cMonthly)"></i>月</span>
+          <span><i class="dot" style="background:var(--quota-goldTop)"></i>免费</span>
+          <span class="time" id="quotaTime">下午4:51</span>
+        </span>
+      </div>
+      <div class="col-head">
+        <span class="model-col">模型</span>
+        <span class="bar-col">请求数（同行三段）</span>
+        <span class="val-col"></span>
+      </div>
+      <div class="q-rows" id="qRows"></div>
+      <div class="axis" id="qAxis"><div class="line"></div></div>
+      <div class="footnote">数据实时同步自 opencode.ai/docs/zh-cn/go/ 配额表，刷新自动更新；Ox Alpha Free 为限时免费不计配额。</div>
+    </section>
+
+    <button class="refresh-btn">↻ 刷新</button>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// 演示数据：配额表数字取自 macOS 版 2026-09-16 的真实截图
+// ─────────────────────────────────────────────────────────────
+
+// 模型调色板（顺序与 macOS 版一致，颜色取自 design/tokens.css）
+const PALETTE = {
+  "deepseek-v4.1-flash":          "#e6e6ad",
+  "deepseek-v4-flash-vision-exp": "#ebd1ad",
+  "deepseek-v4-flash":            "#e6e6ad",
+  "deepseek-v4-pro":              "#b8ade0",
+  "glm-5.3-flash":                "#e09994",
+  "glm-5.3":                      "#e09994",
+  "glm-5.2":                      "#eb9e9e",
+  "glm-5.1":                      "#f2a6a6",
+  "gpt-5.6-luna":                 "#adcceb",
+  "grok-4.6":                     "#5cc85c",
+  "grok-4.5":                     "#d9c79e",
+  "hy4-preview":                  "#ebe080",
+  "hy3":                          "#e0e09e",
+  "kimi-k3":                      "#99b8f2",
+  "kimi-k2.7-code":               "#b8adeb",
+  "kimi-k2.6":                    "#adebcc",
+  "kimi-k2.5":                    "#b2e6bf",
+  "longcat-2.0":                  "#8ab4f8",
+  "minimax-m3":                   "#fab8d2",
+  "minimax-m2.7":                 "#c7b8eb",
+  "minimax-m2.5":                 "#ccb3e6",
+  "mimo-v2.5":                    "#9ee0d1",
+  "mimo-v2.5-pro":                "#b8c7eb",
+  "mimo-v2-pro":                  "#94cce0",
+  "mimo-v2-omni":                 "#a8d6e6",
+  "muse-spark-1.3-contributor":   "#9ee0b3",
+  "muse-spark-1.2-contributor":   "#b8ebb8",
+  "nemotron-3.5-lightning-free":  "#e6d68a",
+  "nemotron-3-ultra-free":        "#e06060",
+  "omen-alpha":                   "#f2b47d",
+  "ox-alpha-free":                "#73d973",
+  "qwen3.8-max":                  "#8ab2e6",
+  "qwen3.7-max":                  "#99c2eb",
+  "qwen3.8-flash":                "#adebeb",
+  "qwen3.7-plus":                 "#a6c2eb",
+  "qwen3.6-plus":                 "#b8cceb",
+  "qwen3.5-plus":                 "#bfd1f2",
+  "ling-3.0-flash-fin-free":      "#73d9d9",
+  "hy3-free":                     "#e0d97a",
+};
+const OTHER_COLOR = "#999999";
+const colorOf = (m) => PALETTE[m] || OTHER_COLOR;
+
+// 图例：与截图里的顺序一致
+const LEGEND = [
+  "minimax-m3 (go)", "minimax-m2.7 (go)", "minimax-m2.5 (go)", "kimi-k3 (go)",
+  "kimi-k2.7-code (go)", "kimi-k2.6 (go)", "longcat-2.0 (go)", "kimi-k2.5 (go)",
+  "glm-5.2 (go)", "glm-5.3-flash (go)", "glm-5.3 (go)", "glm-5.1 (go)",
+  "glm-5 (go)", "deepseek-v4-pro (go)", "deepseek-v4-flash (go)", "deepseek-flash (go)",
+  "deepseek-v4.1-flash (go)", "deepseek-v4-flash-visio…", "qwen3.7-max (go)", "qwen3.8-max (go)",
+  "qwen3.8-flash (go)", "qwen3.7-plus (go)", "qwen3.6-plus (go)", "qwen3.5-plus (go)",
+  "mimo-v2-pro (go)", "mimo-v2-omni (go)", "mimo-v2.5-pro (go)", "mimo-v2.5 (go)",
+  "hy4-preview (go)", "hy3 (go)", "hy3-preview (go)", "gpt-5.6-luna (go)",
+  "grok-4.5 (go)", "grok-4.6 (go)", "muse-spark-1.3-contribu…", "muse-spark-1.2-contribu…",
+  "omen-alpha (go)", "hy3-free (go)", "ling-3.0-flash-fin-free (go)", "muse-spark-1.2-contribu…",
+  "muse-spark-1.3-contribu…", "nemotron-3-ultra-free (go)", "nemotron-3.5-lightning-f…", "ox-alpha-free (go)",
+];
+
+// Go 配额表：h5 / 周 / 月，取自截图真实数字
+const QUOTAS = [
+  ["Kimi K3", 110, 250, 490],
+  ["Qwen3.8 Max", 160, 400, 810],
+  ["Grok 4.6", 169, 423, 845],
+  ["Qwen3.7 Max", 170, 420, 840],
+  ["GLM-5.3", 220, 540, 1080],
+  ["GLM-5.2", 880, 2150, 4300],
+  ["GLM-5.1", 880, 2150, 4300],
+  ["DeepSeek V4 Pro", 1050, 2600, 5200],
+  ["Kimi K2.6", 1150, 2880, 5750],
+  ["Kimi K2.7 Code", 1350, 3380, 6750],
+  ["Hy4 preview", 1350, 3380, 6770],
+  ["GPT 5.6 Luna", 2050, 5100, 10250],
+  ["MiniMax M3", 3200, 8000, 16000],
+  ["MiMo-V2.5-Pro", 3250, 8150, 16300],
+  ["Qwen3.6 Plus", 3300, 8200, 16300],
+  ["MiniMax M2.7", 3400, 8500, 17000],
+  ["Qwen3.7 Plus", 4300, 10800, 21600],
+  ["Hy3", 4300, 10750, 21500],
+  ["Qwen3.8 Flash", 5400, 13500, 27000],
+  ["GLM-5.3-Flash", 6320, 15790, 31580],
+  ["DeepSeek V4 Flash Vis…", 6500, 16250, 32500],
+  ["LongCat-2.0", 11400, 28600, 57200],
+  ["DeepSeek V4 Flash", 13000, 32500, 65000],
+  ["DeepSeek V4.1 Flash", 26000, 65000, 130000, "4x"],
+  ["MiMo-V2.5", 30100, 75200, 150400],
+  ["Muse Spark 1.3 Contrib…", 45300, 113300, 226600],
+  ["Muse Spark 1.2 Contrib…", 45300, 113300, 226600],
+];
+const GOLD_ROWS = ["Ox Alpha Free"];
+
+// 每日花费：按截图里的形状近似，再等比缩放让合计等于 $34.93
+const DAILY_SHAPE = [
+  1.60, 0.95, 0.72, 0.55, 2.55, 0.28, 0.05, 1.00, 0.45, 0.55,
+  1.30, 0.75, 0.45, 0.70, 0.30, 4.40, 0.45, 0.50, 1.95, 0.25,
+  0.05, 1.25, 0.45, 1.05, 1.75, 1.35, 0.55, 0.25, 0.15, 0.05, 0.02,
+];
+const TARGET_TOTAL = 34.93;
+const scale = TARGET_TOTAL / DAILY_SHAPE.reduce((a, b) => a + b, 0);
+
+// 给每天拆出 2~4 段模型（确定性伪随机，刷新不变）
+const SPLIT_MODELS = [
+  ["deepseek-v4.1-flash", "muse-spark-1.2-contributor"],
+  ["deepseek-v4.1-flash", "muse-spark-1.2-contributor", "longcat-2.0"],
+  ["muse-spark-1.2-contributor", "glm-5.3-flash"],
+  ["deepseek-v4.1-flash", "qwen3.8-max", "muse-spark-1.3-contributor"],
+  ["muse-spark-1.2-contributor", "longcat-2.0", "glm-5.2", "gpt-5.6-luna"],
+];
+function splitDay(v, i) {
+  const models = SPLIT_MODELS[i % SPLIT_MODELS.length];
+  const raw = models.map((_, k) => 0.3 + ((i * 7 + k * 13) % 10) / 10);
+  const sum = raw.reduce((a, b) => a + b, 0);
+  return models.map((m, k) => [m, (v * raw[k]) / sum]);
+}
+
+// ── 渲染 ────────────────────────────────────────────────────
+const DAY_MS = 86400000;
+const days = DAILY_SHAPE.map((v, i) => ({ i, total: v * scale }));
+const maxDay = Math.max(...days.map((d) => d.total));
+const AXIS_MAX = maxDay * 1.04;                            // 顶部留一点余量，最高柱几乎顶到顶，和原版一致
+const Y_STEP = 2;
+
+function renderChart() {
+  const plot = document.getElementById("chartPlot");
+  plot.innerHTML = "";
+
+  // 网格线 + Y 轴标签（$0 / $2 / $4 …）
+  for (let v = 0; v <= AXIS_MAX + 0.001; v += Y_STEP) {
+    const y = (1 - v / AXIS_MAX) * 100;
+    const line = document.createElement("div");
+    line.className = "gridline";
+    line.style.top = y + "%";
+    plot.appendChild(line);
+    const lab = document.createElement("div");
+    lab.className = "ylab";
+    lab.style.top = y + "%";
+    lab.textContent = "$" + v;
+    plot.appendChild(lab);
+  }
+
+  // 柱子：每天一列，从下往上堆叠
+  const bars = document.createElement("div");
+  bars.className = "bars";
+  days.forEach((d, idx) => {
+    const col = document.createElement("div");
+    col.className = "bar";
+    const segs = splitDay(d.total, idx).reverse();   // 视觉上从下往上
+    segs.forEach(([model, val]) => {
+      const seg = document.createElement("i");
+      seg.style.height = (val / AXIS_MAX) * 100 + "%";
+      seg.style.background = colorOf(model);
+      seg.title = `${model} $${val.toFixed(3)}`;
+      col.appendChild(seg);
+    });
+    col.style.height = (d.total / AXIS_MAX) * 100 + "%";
+    bars.appendChild(col);
+  });
+  plot.appendChild(bars);
+
+  // X 轴：每 5 天一个标签，和原版一致
+  const xaxis = document.getElementById("chartXAxis");
+  xaxis.innerHTML = "";
+  for (let i = 0; i < days.length; i += 5) {
+    const day = 18 + i >= 31 ? 18 + i - 31 : 18 + i;
+    const month = 18 + i >= 31 ? 9 : 8;
+    const span = document.createElement("span");
+    span.textContent = `${month}/${day}`;
+    xaxis.appendChild(span);
+  }
+
+  document.getElementById("totalLabel").textContent =
+    "$" + TARGET_TOTAL.toFixed(2) + " USD";
+}
+
+function renderLegend() {
+  const box = document.getElementById("legend");
+  box.innerHTML = "";
+  LEGEND.forEach((name) => {
+    const key = name.replace(" (go)", "").replace("…", "");
+    const item = document.createElement("div");
+    item.className = "item";
+    const sw = document.createElement("span");
+    sw.className = "swatch";
+    sw.style.background = colorOf(key);
+    const tx = document.createElement("span");
+    tx.className = "name";
+    tx.textContent = name;
+    item.append(sw, tx);
+    box.appendChild(item);
+  });
+}
+
+function renderToday() {
+  // 截图：deepseek-v4.1-flash 99%、glm-5.3-flash 0%，合计 $0.38
+  const total = 0.38;
+  const parts = [["deepseek-v4.1-flash", 0.99], ["glm-5.3-flash", 0.01]];
+  document.getElementById("todayTotal").textContent = "$" + total.toFixed(2) + " USD";
+  const bar = document.getElementById("todayBar");
+  bar.innerHTML = "";
+  parts.forEach(([m, r]) => {
+    const seg = document.createElement("i");
+    seg.style.width = r * 100 + "%";
+    seg.style.background = colorOf(m);
+    bar.appendChild(seg);
+  });
+  const legend = document.getElementById("todayLegend");
+  legend.innerHTML = "";
+  parts.forEach(([m, r]) => {
+    const s = document.createElement("span");
+    s.innerHTML = `<i class="dot" style="background:${colorOf(m)}"></i>${m} ${Math.round(r * 100)}%`;
+    legend.appendChild(s);
+  });
+}
+
+function renderQuotaRows() {
+  // 截图：5小时 0% · 4小时59分 / 周 5% · 4天 / 月 74% · 1天
+  const rows = [["5小时", 0, "4小时59分"], ["周", 5, "4天"], ["月", 74, "1天"]];
+  const box = document.getElementById("quotaRows");
+  box.innerHTML = "";
+  rows.forEach(([label, pct, reset]) => {
+    const color = pct >= 80 ? "var(--red)" : pct >= 50 ? "var(--orange)" : "var(--green)";
+    const el = document.createElement("div");
+    el.className = "quota-row";
+    el.innerHTML = `
+      <div class="line">
+        <span class="label">${label}</span>
+        <span class="spacer"></span>
+        <span class="pct" style="color:${color}">${pct}%</span>
+        <span class="reset">· ${reset}</span>
+      </div>
+      <div class="track"><i style="width:${pct}%;background:${color}"></i></div>`;
+    box.appendChild(el);
+  });
+}
+
+// Go 配额表的坐标轴：与 macOS 版同一套公式
+// base=24 + pow(log10(ratio)/log10(max), 2.2) * (宽 - base)
+function renderQuotaTable() {
+  const baseline = Math.min(...QUOTAS.map((q) => q[3]));
+  const maxMult = Math.min(
+    Math.max(...QUOTAS.map((q) => q[3] / baseline)), 500
+  );
+  const AXIS_BASE = 24, EXP = 2.2;
+
+  const box = document.getElementById("qRows");
+  box.innerHTML = "";
+  QUOTAS.forEach(([name, h5, weekly, monthly, badge]) => {
+    const el = document.createElement("div");
+    el.className = "q-row";
+
+    // 总长 = monthly 在轴上的位置；内部三段按线性比例切
+    const widthPct = (() => {
+      const t = Math.pow(Math.log10(monthly / baseline) / Math.log10(maxMult), EXP);
+      return t * 100;   // 以「相对轴的最大位置」为 100%
+    })();
+    const w5 = widthPct * (h5 / monthly);
+    const wWeek = widthPct * (Math.max(0, weekly - h5) / monthly);
+    const wMonth = Math.max(0, widthPct - w5 - wWeek);
+
+    el.innerHTML = `
+      <div class="q-model">
+        <span class="q-rank">${h5.toLocaleString("en-US")}</span>
+        <span class="q-name">${name}</span>
+        ${badge ? `<span class="q-badge">${badge}</span>` : ""}
+      </div>
+      <div class="q-bar">
+        <i style="width:${w5}%;background:var(--quota-c5h)"></i>
+        <i style="width:${wWeek}%;background:var(--quota-cWeekly)"></i>
+        <i style="width:${wMonth}%;background:var(--quota-cMonthly)"></i>
+      </div>
+      <div class="q-vals">周${weekly.toLocaleString("en-US")}<br>月${monthly.toLocaleString("en-US")}</div>`;
+    box.appendChild(el);
+  });
+
+  // 免费行
+  GOLD_ROWS.forEach((name) => {
+    const el = document.createElement("div");
+    el.className = "q-row";
+    el.innerHTML = `
+      <div class="q-model"><span class="q-gold">∞</span><span class="q-name">${name}</span></div>
+      <div class="q-bar q-bar-gold" style="width:100%">∞ 免费拉满</div>
+      <div class="q-vals" style="color:var(--quota-goldBottom)">限时免费<br>∞</div>`;
+    box.appendChild(el);
+  });
+
+  // X 轴刻度：候选值裁到真实最大倍率内，间隔不足 30px 的自动隐藏
+  const axis = document.getElementById("qAxis");
+  axis.querySelectorAll(".tick").forEach((n) => n.remove());
+  const CANDIDATES = [1, 5, 10, 25, 50, 100, 250, 500];
+  const barPx = box.clientWidth - 150 - 70 - 12;   // 去掉模型列、数值列、间隙
+  let lastX = -Infinity;
+  CANDIDATES.filter((m) => m <= maxMult).forEach((mult) => {
+    const t = Math.pow(Math.log10(mult) / Math.log10(maxMult), EXP);
+    const x = 24 + t * (barPx - 24);
+    if (x - lastX < 30) return;
+    lastX = x;
+    const tick = document.createElement("div");
+    tick.className = "tick";
+    tick.style.left = (x - 14) + "px";
+    tick.textContent = mult + "x";
+    axis.appendChild(tick);
+  });
+}
+
+// 账期 / 自然月切换（仅演示交互）
+document.getElementById("alignToggle").addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  document.querySelectorAll("#alignToggle button").forEach((b) => b.classList.remove("active"));
+  btn.classList.add("active");
+  const billing = btn.dataset.align === "billing";
+  document.getElementById("rangeLabel").textContent = billing ? "8月18日-9月17日" : "本月花费";
+  document.getElementById("cycleDetail").textContent = billing
+    ? "套餐生效 8月18日 13:51 — 9月18日 13:51"
+    : "自然月 1日—月末";
+});
+
+renderChart();
+renderLegend();
+renderToday();
+renderQuotaRows();
+renderQuotaTable();
+window.addEventListener("resize", renderQuotaTable);
+</script>
+</body>
+</html>

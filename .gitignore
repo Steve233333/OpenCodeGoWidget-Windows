@@ -1,0 +1,11 @@
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+build/
+dist/
+*.exe
+*.msi
+
+# 记录 macOS 版源码位置，属于本机路径，不入库
+design/.mac-source

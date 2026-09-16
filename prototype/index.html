@@ -48,6 +48,7 @@
     width: var(--window-w);
     height: var(--window-h);
     margin: 0 auto;
+    position: relative;          /* 设置面板以此为定位基准 */
     background: #fff;
     border-radius: 12px;
     box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.06);
@@ -235,6 +236,89 @@
     font-family: inherit; font-size: var(--fs-subheadline); font-weight: 600; cursor: pointer;
   }
   .refresh-btn:hover { filter: brightness(1.06); }
+
+  /* ── 设置面板（560×680，mac 版同尺寸 sheet）───────────────── */
+  .sheet-backdrop {
+    position: absolute; inset: 0; z-index: 10;
+    background: rgba(0, 0, 0, 0.10);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .sheet-backdrop[hidden] { display: none; }
+  .sheet {
+    width: 560px; height: 680px; background: #fff; border-radius: 12px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28), 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .sheet-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+  .sheet-body::-webkit-scrollbar { width: 9px; }
+  .sheet-body::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.22); border-radius: 5px; border: 2px solid #fff; }
+
+  .card {
+    background: rgba(0, 0, 0, 0.03);
+    border: 0.5px solid rgba(0, 0, 0, 0.06);
+    border-radius: 10px; padding: 14px;
+  }
+  .card + .card { margin-top: 0; }
+  .card-head { display: flex; align-items: center; gap: 8px; }
+  .card-title { font-size: var(--fs-subheadline); font-weight: 600; }
+  .card-title.lg { font-size: var(--fs-headline); }
+  .link-btn {
+    display: flex; align-items: center; gap: 3px;
+    background: none; border: 0; padding: 0; cursor: pointer;
+    font-family: inherit; font-size: var(--fs-caption2); color: var(--accent);
+  }
+  .field-label { font-size: var(--fs-caption2); color: var(--secondary); margin-top: 12px; line-height: 1.6; }
+  .input {
+    width: 100%; height: 28px; margin-top: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.14); border-radius: 6px;
+    background: #fff; padding: 0 8px;
+    font-family: inherit; font-size: var(--fs-caption2); color: var(--text);
+  }
+  .input.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; }
+  .input:focus { outline: 2px solid rgba(0, 122, 255, 0.35); outline-offset: -1px; }
+  .input-row { display: flex; gap: 6px; align-items: center; }
+  .input-row .input { margin-top: 4px; }
+  .mini-btn {
+    height: 22px; padding: 0 8px; border-radius: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.14); background: #fff; cursor: pointer;
+    font-family: inherit; font-size: var(--fs-caption2); color: var(--text); white-space: nowrap;
+  }
+  .mini-btn:hover { background: rgba(0, 0, 0, 0.04); }
+  .mini-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .mini-btn.primary:hover { filter: brightness(1.06); }
+  .status-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+  .status { font-size: var(--fs-micro); }
+  .status.ok { color: var(--green); }
+  .status.warn { color: var(--orange); }
+  .danger-btn {
+    background: none; border: 0; padding: 0; cursor: pointer;
+    font-family: inherit; font-size: var(--fs-caption2); color: var(--red);
+  }
+  .hint { font-size: var(--fs-micro); color: var(--secondary); line-height: 1.7; margin-top: 8px; }
+  .hint.tiny { font-size: var(--fs-nano); }
+  hr.soft { border: 0; border-top: 1px solid var(--stroke); margin: 12px 0 0; }
+
+  /* 开关 */
+  .switch { position: relative; width: 34px; height: 20px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch span {
+    position: absolute; inset: 0; border-radius: 10px; cursor: pointer;
+    background: rgba(0, 0, 0, 0.18); transition: background 0.15s;
+  }
+  .switch span::before {
+    content: ""; position: absolute; width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; top: 2px; left: 2px; transition: transform 0.15s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  }
+  .switch input:checked + span { background: var(--green); }
+  .switch input:checked + span::before { transform: translateX(14px); }
+
+  .log-box {
+    margin-top: 10px; padding: 8px; border-radius: 6px;
+    background: rgba(0, 0, 0, 0.05);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 9px; color: var(--secondary); line-height: 1.8; max-height: 110px; overflow-y: auto;
+  }
 </style>
 </head>
 <body>
@@ -252,7 +336,7 @@
       <span>OpenCode Go</span>
     </div>
     <span class="spacer"></span>
-    <button class="icon-btn" title="设置">⚙</button>
+    <button class="icon-btn" id="gearBtn" title="设置">⚙</button>
   </header>
 
   <div class="scroll">
@@ -320,6 +404,116 @@
     </section>
 
     <button class="refresh-btn">↻ 刷新</button>
+  </div>
+
+  <!-- ── 设置面板：点击右上角齿轮打开 ───────────────────────── -->
+  <div class="sheet-backdrop" id="settingsSheet" hidden>
+    <div class="sheet">
+      <div class="sheet-body">
+
+        <!-- Go 额度设置 -->
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title lg">Go 额度设置</span>
+            <span class="spacer"></span>
+            <button class="link-btn">◍ 浏览器登录自动获取</button>
+          </div>
+
+          <div class="field-label">1. OpenCode Go API Key（sk-...，存 Windows 凭据管理器用于额度查询；Codex 用的 Key 在下方「Codex 一键配置」填写）</div>
+          <div class="input-row">
+            <input class="input" id="goKeyInput" type="password" value="sk-9x7Kd2mQp4Lv8Tn3Rw6Yb1Hc5Zg0Jf">
+            <button class="mini-btn" id="toggleKeyBtn">显示</button>
+          </div>
+          <div class="status-row">
+            <span class="status ok">已存 sk-9****y70g</span>
+            <span class="spacer"></span>
+            <button class="danger-btn">清除已存 Key</button>
+          </div>
+          <div class="hint">填新值点「保存」= 替换；点「清除已存 Key」= 删除（留空保存不会清空）</div>
+
+          <hr class="soft">
+
+          <div class="field-label">2. 柱状图费用（可选）：粘贴你的 workspace 链接或 HAR，以启用按日按模型堆叠真数据（浏览器登录后自动填）</div>
+          <input class="input" value="wrk_01KT9VX0KZCD5SYNXH8D3EYJD8">
+          <div class="input-row" style="margin-top:6px">
+            <button class="mini-btn">选择 HAR 文件</button>
+          </div>
+          <input class="input mono" value="fe26.2**835b65ffcda7e7051453808e57a8c02413d98c79732b8a46d6ebad9071d1db954*TwGdZ">
+          <div class="status-row">
+            <span class="status ok">已配置 workspace 凭据（费用图已启用）</span>
+            <span class="spacer"></span>
+            <button class="danger-btn">清除 workspace 凭据</button>
+          </div>
+
+          <div class="input-row" style="margin-top:12px">
+            <button class="mini-btn primary">保存</button>
+            <button class="mini-btn">取消</button>
+          </div>
+          <div class="hint tiny">提示：柱状图需要 workspace 裸 ID（wrk_...）与 539B auth Cookie；粘贴 .har 路径或 https://.../workspace/wrk_.../usage 全链路时会在保存时即时解析为真实 Cookie 存入本机共享文件，无需手动复制。点上方「浏览器登录自动获取」可一步完成。</div>
+
+          <hr class="soft">
+
+          <div class="status-row" style="margin-top:12px">
+            <span style="font-size:var(--fs-caption)">开机自动启动</span>
+            <span class="spacer"></span>
+            <label class="switch"><input type="checkbox" checked><span></span></label>
+          </div>
+          <div class="hint tiny" style="margin-top:4px">可在「任务管理器 → 启动应用」中管理</div>
+
+          <hr class="soft">
+
+          <div class="status-row" style="margin-top:12px">
+            <span class="status">版本 <b style="color:var(--text)">1.1.9.2 (22)</b> 已是最新</span>
+            <span class="spacer"></span>
+            <button class="mini-btn">检查更新</button>
+          </div>
+        </div>
+
+        <!-- Codex 一键配置 -->
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">Codex 一键配置</span>
+            <span class="spacer"></span>
+            <button class="link-btn">◍ 浏览器登录自动获取</button>
+          </div>
+          <div class="field-label">填写后点击「配置」即可完成安装或更新（有旧 Key 时留空自动复用；输入新值即替换）</div>
+          <div class="status-row">
+            <span class="status">Codex <b style="color:var(--text)">26.908.40834</b>（已安装）</span>
+          </div>
+
+          <div class="status-row" style="margin-top:12px">
+            <span style="font-size:var(--fs-caption)">OpenCode Go Key <span style="color:var(--red)">*</span></span>
+            <span class="status ok">已存 sk-9****y70g</span>
+            <span class="spacer"></span>
+            <button class="mini-btn">显示</button>
+            <button class="danger-btn">清除</button>
+          </div>
+          <input class="input" placeholder="sk-...（必填，没有则无法使用 Go 模型）">
+          <div class="hint tiny" style="margin-top:4px">留空将沿用已存</div>
+
+          <div class="status-row" style="margin-top:12px">
+            <span style="font-size:var(--fs-caption)">DeepSeek Key</span>
+            <span class="status ok">已存 sk-9****f02c</span>
+            <span class="spacer"></span>
+            <button class="mini-btn">显示</button>
+            <button class="mini-btn">剪贴板填入</button>
+            <button class="danger-btn">清除</button>
+          </div>
+          <input class="input" placeholder="sk-...（可选，官方 deepseek 模型）">
+          <div class="hint tiny" style="margin-top:4px">留空将沿用已存</div>
+
+          <div class="input-row" style="margin-top:14px">
+            <button class="mini-btn primary" style="height:28px;padding:0 18px">配置</button>
+          </div>
+
+          <div class="log-box">
+            [就绪] 读取已存配置…<br>
+            [完成] 退出码 0 ✅
+          </div>
+        </div>
+
+      </div>
+    </div>
   </div>
 </div>
 
@@ -652,6 +846,22 @@ renderToday();
 renderQuotaRows();
 renderQuotaTable();
 window.addEventListener("resize", renderQuotaTable);
+
+// ── 设置面板 ────────────────────────────────────────────────
+const sheet = document.getElementById("settingsSheet");
+document.getElementById("gearBtn").addEventListener("click", () => { sheet.hidden = false; });
+sheet.addEventListener("click", (e) => { if (e.target === sheet) sheet.hidden = true; });
+sheet.querySelectorAll(".mini-btn").forEach((b) => {
+  if (b.textContent.trim() === "取消") b.addEventListener("click", () => { sheet.hidden = true; });
+});
+document.getElementById("toggleKeyBtn").addEventListener("click", (e) => {
+  const input = document.getElementById("goKeyInput");
+  const shown = input.type === "text";
+  input.type = shown ? "password" : "text";
+  e.target.textContent = shown ? "显示" : "隐藏";
+});
+// 想直接看设置面板，地址后面加 #settings 即可
+if (location.hash === "#settings") sheet.hidden = false;
 </script>
 </body>
 </html>

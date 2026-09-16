@@ -9,3 +9,5 @@ dist/
 
 # 记录 macOS 版源码位置，属于本机路径，不入库
 design/.mac-source
+src/**/bin/
+src/**/obj/

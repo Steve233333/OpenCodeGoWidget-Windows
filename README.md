@@ -52,12 +52,40 @@ python3 tools/extract_tokens.py --source /path/to/OpenCodeGoWidget
 
 倍率以月配额最低的模型为 1x 基准，刻度候选 1x/5x/10x/25x/50x/100x/250x/500x，相邻刻度间距不足 30px 时自动隐藏。柱内三段按线性比例切分：红=5h、橙=周（扣掉 5h）、绿=月（扣掉周）。
 
+## 构建 Windows exe
+
+**不需要 Windows 机器**，在 macOS 上就能交叉编译（靠 .NET 的 `EnableWindowsTargeting`）：
+
+```sh
+# 首次先装 SDK（用户目录，不用 sudo）
+curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 8.0
+
+export PATH="$HOME/.dotnet:$PATH"
+cd src/OpenCodeGoWidget.Windows
+dotnet publish -c Release
+```
+
+产物在 `bin/Release/net8.0-windows/win-x64/publish/OpenCodeGoWidget.exe`。
+
+exe 自带 .NET 运行时（约 155 MB，zip 后约 63 MB），目标机器不需要装任何东西；界面用系统自带的 WebView2（Win11 预装）。
+
+### 当前这一版能干什么
+
+- 托盘常驻：左键开面板，右键菜单为「打开主面板 / 设置… / 退出」
+- 主面板与设置面板的完整界面（就是 `prototype/` 里的两屏）
+- 关窗口收进托盘，不退出进程（和 macOS 版一致）
+
+### 还没接的
+
+数据引擎（配额抓取、费用统计）、Codex 一键配置、浏览器登录自动获取 Key。
+
 ## 目录
 
 ```
 design/      设计 token（自动生成，勿手改）
 prototype/   主界面 HTML 原型
-tools/       从 macOS 版源码扒 token 的脚本
+src/         .NET + WebView2 的 Windows 壳
+tools/       扒 token、生成 ico 的脚本
 docs/        设计决策与移植笔记
 ```
 

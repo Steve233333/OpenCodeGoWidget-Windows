@@ -319,6 +319,14 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 9px; color: var(--secondary); line-height: 1.8; max-height: 110px; overflow-y: auto;
   }
+
+  /* ── 嵌入模式：被 exe 用 WebView2 加载时（?embed=1），去掉原型说明和窗口外框 ── */
+  body.embedded { padding: 0; background: #fff; }
+  body.embedded .demo-note { display: none; }
+  body.embedded .window {
+    width: 100%; height: 100vh; border-radius: 0; box-shadow: none; margin: 0;
+  }
+  body.embedded .sheet { width: calc(100% - 32px); max-width: 560px; height: calc(100vh - 32px); max-height: 680px; }
 </style>
 </head>
 <body>
@@ -862,6 +870,12 @@ document.getElementById("toggleKeyBtn").addEventListener("click", (e) => {
 });
 // 想直接看设置面板，地址后面加 #settings 即可
 if (location.hash === "#settings") sheet.hidden = false;
+
+// 被 exe 加载时带 ?embed=1：去掉原型说明和窗口外框，铺满窗口
+if (location.search.includes("embed")) document.body.classList.add("embedded");
+
+// 给宿主（exe 的托盘菜单）调用：打开设置面板
+window.openSettings = () => { sheet.hidden = false; };
 </script>
 </body>
 </html>

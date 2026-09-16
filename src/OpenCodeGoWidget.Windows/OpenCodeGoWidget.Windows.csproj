@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+
+    <!-- 关键：允许在 macOS/Linux 上编译 Windows 目标（交叉编译出 exe） -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+
+    <AssemblyName>OpenCodeGoWidget</AssemblyName>
+    <RootNamespace>OpenCodeGoWidget</RootNamespace>
+    <ApplicationIcon>Assets/app.ico</ApplicationIcon>
+    <Version>0.1.0</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <AssemblyTitle>OpenCode Go</AssemblyTitle>
+    <Product>OpenCode Go 小组件</Product>
+    <Company>Steve233</Company>
+    <Copyright>MIT</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 界面直接引用仓库里的原型：改完原型重新编译即可，不存第二份 -->
+    <EmbeddedResource Include="..\..\prototype\index.html" LogicalName="web.prototype.index.html" />
+    <EmbeddedResource Include="..\..\design\tokens.css" LogicalName="web.design.tokens.css" />
+    <EmbeddedResource Include="Assets\app.ico" LogicalName="assets.app.ico" />
+  </ItemGroup>
+
+</Project>
